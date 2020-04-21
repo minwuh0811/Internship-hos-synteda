@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import adfuller, acf, pacf
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.graphics import tsaplots
 import itertools
 import warnings
 
@@ -35,13 +36,29 @@ def test_stationarity(timeseries):
         dfoutput['Critical Value (%s)' % key] = value
     print(dfoutput)
 test_stationarity(ts)
-"""
+
 ts_log=np.log(ts)
 ts_log_mean=ts_log.rolling(12).mean()
 ts_log_wmean= ts_log.ewm(halflife=12,min_periods=0,adjust=True,ignore_na=False).mean()
 diff=np.subtract(ts_log, ts_log.shift())
 diff.dropna(inplace=True)
-test_stationarity(diff)
+#test_stationarity(diff)
+
+diff1 = ts.diff(1)
+diff1=np.subtract(diff1, diff1.shift())
+diff1.dropna(inplace=True)
+print(diff1)
+test_stationarity(diff1)
+plt.plot(diff1)
+plt.show()
+
+diff1.dropna(inplace=True)
+fig = plt.figure(figsize=(12,8))
+ax1=fig.add_subplot(211)
+fig = tsaplots.plot_acf(diff1,lags=40,ax=ax1)
+ax2 = fig.add_subplot(212)
+fig = tsaplots.plot_pacf(diff1,lags=40,ax=ax2)
+fig.show()
 
 lag_acf=acf(diff,nlags=20)
 lag_pacf = pacf(diff,nlags=20, method='ols')
@@ -61,10 +78,10 @@ plt.axhline(y=1.96/np.sqrt(len(diff)), linestyle='--', color='gray')
 plt.title('Patial Autocorrelation Function')
 plt.tight_layout()
 plt.show()
-"""
+
 """
 p = q =d = range(0, 5)
-pdq = list(itertools.product(p, d, q))
+pdq = list(itertools.product(p, 1, q))
 
 seasonal_pdq = [(x[0], x[1], x[2], 12) for x in list(itertools.product(p, d, q))]
 print('Examples of parameter combinations for Seasonal ARIMA...')
@@ -85,7 +102,7 @@ for param in pdq:
 
 p = q =d = range(0, 3)
 pdq = list(itertools.product(p, d, q))
-seasonal_pdq = [(x[0], x[1], x[2], 12) for x in list(itertools.product(p, d, q))]
+seasonal_pdq = [(x[0], x[1], x[2], 13) for x in list(itertools.product(p, d, q))]
 for param in pdq:
     for param_seasonal in seasonal_pdq:
         mod = SARIMAX(ts, order=param, seasonal_order=param_seasonal, enforce_stationarity=False,
@@ -100,13 +117,14 @@ for param in pdq:
         print('The Mean Squared Error of our forecasts is {}'.format(round(mse, 2)))
         print('The Root Mean Squared Error of our forecasts is {}'.format(round(np.sqrt(mse), 2)))
 """
-mod = SARIMAX(ts,order=(2, 0, 1),seasonal_order=(2, 2, 0, 12),enforce_stationarity=False,enforce_invertibility=False)
+mod = SARIMAX(ts,order=(11, 2, 1),seasonal_order=(2, 2, 0, 12),enforce_stationarity=False,enforce_invertibility=False)
 results = mod.fit()
+print('AIC:{} BIC:{} HQ:{}'.format (results.aic, results.bic, results.hqic))
 print(results.summary().tables[1])
 results.plot_diagnostics(figsize=(16, 8))
 plt.show()
 plt.subplot(121)
-pred = results.get_prediction(start=pd.to_datetime('2019-01-15'), dynamic=False)
+pred = results.get_prediction(start=pd.to_datetime('2019-04-15'), dynamic=False)
 print(pred.predicted_mean)
 pred_ci = pred.conf_int()
 ax = ts['2011':].plot(label='observed')

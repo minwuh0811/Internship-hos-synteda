@@ -109,5 +109,89 @@ def compute_cost(Z3, Y):
     return cost
 
 
+parameters=initialize_parameters()
 
+def model(X_train, Y_train, X_test, Y_test, learning_rate=0.1,
+          num_epochs=50000, print_cost=True, print_accuracy=False):
+    """
+    Implements a three-layer tensorflow neural network: LINEAR->RELU->LINEAR->RELU->LINEAR->SOFTMAX.
+    Arguments:
+    X_train -- training set, of shape (input size = 13, number of training examples = 1136)
+    Y_train -- test set, of shape (output size = 105, number of training examples = 1136)
+    X_test -- training set, of shape (input size = 13, number of training examples = 284)
+    Y_test -- test set, of shape (output size = 105, number of test examples = 284)
+    learning_rate -- learning rate of the optimization
+    num_epochs -- number of epochs of the optimization loop
+    minibatch_size -- size of a minibatch
+    print_cost -- True to print the cost every 100 epochs
+    Returns:
+    parameters -- parameters learnt by the model. They can then be used to predict.
+    """
+    ops.reset_default_graph()  # to be able to rerun the model without overwriting tf variables
+    tf.set_random_seed(1)  # to keep consistent results
+    seed = 3  # to keep consistent results
+    costs = []  # To keep track of the cost
+    train_val=[]
+    test_val=[]
+    # Initialize parameters
+    X = tf.placeholder(tf.float32, name='X')
+    Y = tf.placeholder(tf.float32, name='Y')
+    parameters = initialize_parameters()
+    # Forward propagation: Build the forward propagation in the tensorflow graph
+    Z3 = forward_propagation(X, parameters)
+    # Cost function: Add cost function to tensorflow graph
+    cost = compute_cost(Z3, Y)
+    # Backpropagation: Define the tensorflow optimizer. Use an AdamOptimizer.
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+    # Initialize all the variables
+    init = tf.global_variables_initializer()
+    # Start the session to compute the tensorflow graph
+    with tf.Session() as sess:
+        # Run the initialization
+        sess.run(init)
+        # Do the training loop
+        for epoch in range(num_epochs):
+            epoch_cost = 0.  # Defines a cost related to an epoch
+            seed = seed + 1
+                # Run the session to execute the "optimizer" and the "cost", the feedict should contain a minibatch for (X,Y).
+            _, batch_cost = sess.run([optimizer, cost], feed_dict={X: X_train, Y: Y_train})
+            epoch_cost += batch_cost
+            # Print the cost every epoch
+            if print_cost == True and epoch % 100 == 0:
+                print("Cost after epoch %i: %f" % (epoch, epoch_cost))
+            if print_cost == True and epoch % 5 == 0:
+                costs.append(epoch_cost)
+            if print_accuracy == True and epoch % 50 == 0:
+                correct_prediction = tf.equal(tf.argmax(Z3), tf.argmax(Y))
+                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+                train_acc=accuracy.eval({X: X_train, Y: Y_train})
+                test_acc=accuracy.eval({X: X_test, Y: Y_test})
+                train_val.append(train_acc)
+                test_val.append(test_acc)
+                if print_accuracy == True and epoch % 100 == 0:
+                    print("Accuracy after epoch %i: train %f and test %f" % (epoch, train_acc,test_acc))
+# plot the cost
+        plt.subplot(121)
+        plt.plot(np.squeeze(costs))
+        plt.ylabel('cost')
+        plt.xlabel('iterations (per 5s)')
+        plt.title("Learning rate =" + str(learning_rate))
+        plt.legend()
+        plt.subplot(122)
+        plt.plot(np.squeeze(train_val), label='train_val',color='blue')
+        plt.plot(np.squeeze(test_val),label='test_val', color='red')
+        plt.ylabel('accuracy')
+        plt.xlabel('iterations (per 50s)')
+        plt.title("Learning rate =" + str(learning_rate))
+        plt.show()
+        # lets save the parameters in a variable
+        parameters = sess.run(parameters)
+        print("Parameters have been trained!")
+        # Calculate the correct predictions
+        correct_prediction = tf.equal(tf.argmax(Z3), tf.argmax(Y))
+        # Calculate accuracy on the test set
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        print("Train Accuracy:", accuracy.eval({X: X_train, Y: Y_train}))
+        print("Test Accuracy:", accuracy.eval({X: X_test, Y: Y_test}))
+        return parameters
 
